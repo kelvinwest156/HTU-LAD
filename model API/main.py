@@ -1,14 +1,10 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
 from datetime import datetime
 import os
 
-# Import your custom logic
-# Using standard imports instead of relative dots for easier deployment
+# Changed: Removed the dots for standard imports
 from models import load_models, predict_gpa, predict_risk, predict_comprehensive
 from validation import validate_input_data
 
@@ -20,35 +16,29 @@ def create_app():
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     
-    # DYNAMIC PATH RESOLUTION
-    # This finds the absolute path of the directory containing main.py
+    # FIXED: Calculate the ABSOLUTE path to the current folder
+    # This ensures the server finds the files regardless of where it starts
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
-    # If the models are in the same folder as main.py, use BASE_DIR
-    # We allow an Environment Variable 'MODEL_PATH' to override this if needed
+    # Use BASE_DIR as the default if no environment variable is set
     model_folder = os.getenv('MODEL_PATH', BASE_DIR)
     app.config['MODEL_PATH'] = model_folder
     
-    # LOAD MODELS AT STARTUP
-    # This runs once when the server starts
+    # FIXED: Load models immediately during app creation
+    # @app.before_first_request is deprecated and unreliable on some servers
     try:
         load_models(app.config['MODEL_PATH'])
-        logger.info(f"✅ All models loaded successfully from: {app.config['MODEL_PATH']}")
+        logger.info(f"✅ Models successfully loaded from: {app.config['MODEL_PATH']}")
     except Exception as e:
-        logger.error(f"❌ Error loading models: {str(e)}")
-        # We don't 'raise' here so the /health endpoint can still tell us what's wrong
-    
-    # ROUTES
-    
+        logger.error(f"❌ Critical Error loading models: {str(e)}")
+
     @app.route('/health', methods=['GET'])
     def health_check():
-        """Used by Render and your team to verify the server status"""
         return jsonify({
             'status': 'healthy',
-            'timestamp': datetime.now().isoformat(),
-            'model_directory': app.config['MODEL_PATH'],
-            'version': '1.0.1'
-        })
+            'searching_in': app.config['MODEL_PATH'],
+            'timestamp': datetime.now().isoformat()
+
     
     @app.route('/predict/gpa', methods=['POST'])
     def predict_gpa_endpoint():
