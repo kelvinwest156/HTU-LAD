@@ -21,8 +21,11 @@ def load_models(model_path):
     
     try:
         # Construct absolute paths
-        gpa_path = os.path.join(model_path, 'gpa_predictor_final.pkl')
-        risk_path = os.path.join(model_path, 'student_risk_classifier.pkl')
+        model_folder = os.path.join(model_path, "./")
+
+        gpa_path = os.path.join(model_folder, 'gpa_predictor_final.pkl')
+        risk_path = os.path.join(model_folder, 'student_risk_classifier.pkl')
+
         
         # Verify files exist
         if not os.path.exists(gpa_path):
