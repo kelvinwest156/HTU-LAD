@@ -20,11 +20,10 @@ def load_models(model_path):
     global gpa_model, risk_model, feature_columns
     
     try:
-        # Load GPA prediction model
+        # These paths will now be absolute based on the BASE_DIR from main.py
         gpa_model_path = os.path.join(model_path, 'gpa_predictor_final.pkl')
         gpa_model = joblib.load(gpa_model_path)
         
-        # Load risk classification model
         risk_model_path = os.path.join(model_path, 'student_risk_classifier.pkl')
         risk_model = joblib.load(risk_model_path)
         
