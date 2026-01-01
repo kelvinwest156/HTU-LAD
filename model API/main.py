@@ -33,11 +33,12 @@ def create_app():
         logger.error(f"❌ Critical Error loading models: {str(e)}")
 
     @app.route('/health', methods=['GET'])
-    def health_check():
+   def health_check():
         return jsonify({
             'status': 'healthy',
             'searching_in': app.config['MODEL_PATH'],
             'timestamp': datetime.now().isoformat()
+        })
 
     
     @app.route('/predict/gpa', methods=['POST'])
