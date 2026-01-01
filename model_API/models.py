@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
 import joblib
 import pandas as pd
 import numpy as np
 from datetime import datetime
 import os
+import logging
+
+# Setup logging to see errors in the Render console
+logger = logging.getLogger(__name__)
 
 # Global model variables
 gpa_model = None
@@ -16,18 +17,29 @@ risk_model = None
 feature_columns = None
 
 def load_models(model_path):
-    """Load both ML models into memory"""
+    """Load both ML models into memory using absolute paths"""
     global gpa_model, risk_model, feature_columns
     
     try:
-        # These paths will now be absolute based on the BASE_DIR from main.py
-        gpa_model_path = os.path.join(model_path, 'gpa_predictor_final.pkl')
+        # Load GPA prediction model
+        gpa_model_file = 'gpa_predictor_final.pkl'
+        gpa_model_path = os.path.join(model_path, gpa_model_file)
+        
+        if not os.path.exists(gpa_model_path):
+            raise FileNotFoundError(f"Could not find {gpa_model_file} at {gpa_model_path}")
+            
         gpa_model = joblib.load(gpa_model_path)
         
-        risk_model_path = os.path.join(model_path, 'student_risk_classifier.pkl')
+        # Load risk classification model
+        risk_model_file = 'student_risk_classifier.pkl'
+        risk_model_path = os.path.join(model_path, risk_model_file)
+        
+        if not os.path.exists(risk_model_path):
+            raise FileNotFoundError(f"Could not find {risk_model_file} at {risk_model_path}")
+            
         risk_model = joblib.load(risk_model_path)
         
-        # Define expected feature columns (update with your actual features)
+        # Define expected feature columns exactly as used during training
         feature_columns = [
             'attendance_rate', 'previous_gpa', 'quiz_avg', 'assignment_avg',
             'mid_sem_score', 'study_time_hours', 'dashboard_time_hours',
@@ -35,14 +47,14 @@ def load_models(model_path):
             'attendance_x_assignment', 'extracurricular_hours'
         ]
         
-        print("✅ Models loaded successfully")
+        logger.info("✅ Models and feature columns loaded successfully")
         
     except Exception as e:
-        print(f"❌ Error loading models: {str(e)}")
+        logger.error(f"❌ Error in load_models: {str(e)}")
         raise e
 
 def predict_gpa(input_data):
-    """Predict student GPA"""
+    """Predict student GPA based on input features"""
     features = prepare_features(input_data)
     prediction = gpa_model.predict(features)[0]
     
@@ -55,7 +67,7 @@ def predict_gpa(input_data):
     }
 
 def predict_risk(input_data):
-    """Predict student risk category"""
+    """Predict student risk category and return probabilities"""
     features = prepare_features(input_data)
     
     # Get prediction and probabilities
@@ -82,7 +94,7 @@ def predict_risk(input_data):
     }
 
 def predict_comprehensive(input_data):
-    """Get both GPA and risk predictions"""
+    """Get both GPA and risk predictions in one call"""
     gpa_result = predict_gpa(input_data)
     risk_result = predict_risk(input_data)
     
@@ -94,18 +106,16 @@ def predict_comprehensive(input_data):
     }
 
 def prepare_features(input_data):
-    """Convert input data to model-ready format"""
-    # Create DataFrame with correct feature order
+    """Convert raw input JSON to a formatted DataFrame for the model"""
+    # Create dictionary with 0 as default for any missing features
     feature_dict = {col: input_data.get(col, 0) for col in feature_columns}
     return pd.DataFrame([feature_dict], columns=feature_columns)
 
 def get_recommended_actions(risk_category, confidence):
-    """Generate recommended actions based on risk category"""
-    # Your existing implementation
+    """Generate actions based on the predicted risk level"""
     actions = {
         'At Risk': ['Schedule academic advising', 'Enroll in tutoring'],
         'Average': ['Maintain study habits', 'Set improvement goals'],
         'Excellent': ['Explore honors projects', 'Research opportunities']
     }
     return actions.get(risk_category, [])
-
