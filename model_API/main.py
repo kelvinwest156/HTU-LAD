@@ -22,7 +22,7 @@ def create_app():
     # DYNAMIC PATH RESOLUTION
     # This finds the absolute path of the directory containing main.py
     # This solves the [Errno 2] issue by pointing exactly to the folder
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.getcwd() 
     app.config['MODEL_PATH'] = BASE_DIR
 
     # Load models immediately during app startup
