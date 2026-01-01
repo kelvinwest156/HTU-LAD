@@ -17,7 +17,7 @@ def create_app():
     
     # Configuration
     # Uses Environment Variable or defaults to './models/' folder
-    app.config['MODEL_PATH'] = os.getenv('MODEL_PATH', './models/')
+    app.config['MODEL_PATH'] = os.getenv('MODEL_PATH', './')
     
     # Setup logging
     logging.basicConfig(level=logging.INFO)
