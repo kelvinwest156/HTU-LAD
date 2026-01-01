@@ -18,7 +18,7 @@ def create_app():
     CORS(app)
     
     # Configuration
-    app.config['MODEL_PATH'] = os.getenv('MODEL_PATH', './models/')
+    app.config['MODEL_PATH'] = os.getenv('MODEL_PATH', './')
     
     # Setup logging
     logging.basicConfig(level=logging.INFO)
