@@ -7,42 +7,49 @@ import logging
 from datetime import datetime
 import os
 
-# Standardized imports (remove the dot if models.py is in the same folder)
+# Import your custom logic
+# Using standard imports instead of relative dots for easier deployment
 from models import load_models, predict_gpa, predict_risk, predict_comprehensive
 from validation import validate_input_data
 
 def create_app():
     app = Flask(__name__)
-    CORS(app) # Essential for frontend team access
+    CORS(app)
     
-    # Configuration
-    # Uses Environment Variable or defaults to './models/' folder
-    app.config['MODEL_PATH'] = os.getenv('MODEL_PATH', './')
-    
-    # Setup logging
+    # SETUP LOGGING
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     
-    # Load models immediately during app creation
-    # @app.before_first_request is deprecated in Flask 3.0+
-    with app.app_context():
-        try:
-            load_models(app.config['MODEL_PATH'])
-            logger.info("All models loaded successfully")
-        except Exception as e:
-            logger.error(f"Failed to load models: {str(e)}")
-            # Do not raise here if you want the app to start even if loading fails
+    # DYNAMIC PATH RESOLUTION
+    # This finds the absolute path of the directory containing main.py
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
-    # Health check endpoint for Render monitoring
+    # If the models are in the same folder as main.py, use BASE_DIR
+    # We allow an Environment Variable 'MODEL_PATH' to override this if needed
+    model_folder = os.getenv('MODEL_PATH', BASE_DIR)
+    app.config['MODEL_PATH'] = model_folder
+    
+    # LOAD MODELS AT STARTUP
+    # This runs once when the server starts
+    try:
+        load_models(app.config['MODEL_PATH'])
+        logger.info(f"✅ All models loaded successfully from: {app.config['MODEL_PATH']}")
+    except Exception as e:
+        logger.error(f"❌ Error loading models: {str(e)}")
+        # We don't 'raise' here so the /health endpoint can still tell us what's wrong
+    
+    # ROUTES
+    
     @app.route('/health', methods=['GET'])
     def health_check():
+        """Used by Render and your team to verify the server status"""
         return jsonify({
             'status': 'healthy',
             'timestamp': datetime.now().isoformat(),
-            'version': '1.0.0'
+            'model_directory': app.config['MODEL_PATH'],
+            'version': '1.0.1'
         })
     
-    # GPA prediction endpoint
     @app.route('/predict/gpa', methods=['POST'])
     def predict_gpa_endpoint():
         try:
@@ -58,9 +65,8 @@ def create_app():
             return jsonify(result)
         except Exception as e:
             logger.error(f"GPA prediction error: {str(e)}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({'error': str(e)}), 500
     
-    # Risk category prediction endpoint
     @app.route('/predict/risk-category', methods=['POST'])
     def predict_risk_endpoint():
         try:
@@ -76,9 +82,8 @@ def create_app():
             return jsonify(result)
         except Exception as e:
             logger.error(f"Risk prediction error: {str(e)}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({'error': str(e)}), 500
     
-    # Comprehensive prediction endpoint
     @app.route('/predict/comprehensive', methods=['POST'])
     def predict_comprehensive_endpoint():
         try:
@@ -94,13 +99,14 @@ def create_app():
             return jsonify(result)
         except Exception as e:
             logger.error(f"Comprehensive prediction error: {str(e)}")
-            return jsonify({'error': 'Internal server error'}), 500
+            return jsonify({'error': str(e)}), 500
     
     return app
 
-# CRITICAL: Create the app instance at the top level for Gunicorn
+# CRITICAL FOR RENDER/GUNICORN:
+# Create the app object at the top level of the file
 app = create_app()
 
 if __name__ == '__main__':
-    # Local development settings
+    # Local testing settings
     app.run(host='0.0.0.0', port=5000, debug=True)
