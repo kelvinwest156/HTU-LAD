@@ -8,7 +8,6 @@ from datetime import datetime
 import os
 import logging
 
-# Setup logging to see errors in the Render console
 logger = logging.getLogger(__name__)
 
 # Global model variables
@@ -17,29 +16,25 @@ risk_model = None
 feature_columns = None
 
 def load_models(model_path):
-    """Load both ML models into memory using absolute paths"""
+    """Load ML models into memory using absolute paths"""
     global gpa_model, risk_model, feature_columns
     
     try:
-        # Load GPA prediction model
-        gpa_model_file = 'gpa_predictor_final.pkl'
-        gpa_model_path = os.path.join(model_path, gpa_model_file)
+        # Construct absolute paths
+        gpa_path = os.path.join(model_path, 'gpa_predictor_final.pkl')
+        risk_path = os.path.join(model_path, 'student_risk_classifier.pkl')
         
-        if not os.path.exists(gpa_model_path):
-            raise FileNotFoundError(f"Could not find {gpa_model_file} at {gpa_model_path}")
-            
-        gpa_model = joblib.load(gpa_model_path)
+        # Verify files exist
+        if not os.path.exists(gpa_path):
+            raise FileNotFoundError(f"Missing GPA model at {gpa_path}")
+        if not os.path.exists(risk_path):
+            raise FileNotFoundError(f"Missing Risk model at {risk_path}")
+
+        # Load models
+        gpa_model = joblib.load(gpa_path)
+        risk_model = joblib.load(risk_path)
         
-        # Load risk classification model
-        risk_model_file = 'student_risk_classifier.pkl'
-        risk_model_path = os.path.join(model_path, risk_model_file)
-        
-        if not os.path.exists(risk_model_path):
-            raise FileNotFoundError(f"Could not find {risk_model_file} at {risk_model_path}")
-            
-        risk_model = joblib.load(risk_model_path)
-        
-        # Define expected feature columns exactly as used during training
+        # Define expected feature columns
         feature_columns = [
             'attendance_rate', 'previous_gpa', 'quiz_avg', 'assignment_avg',
             'mid_sem_score', 'study_time_hours', 'dashboard_time_hours',
@@ -47,75 +42,50 @@ def load_models(model_path):
             'attendance_x_assignment', 'extracurricular_hours'
         ]
         
-        logger.info("✅ Models and feature columns loaded successfully")
+        logger.info("✅ Models loaded successfully")
         
     except Exception as e:
-        logger.error(f"❌ Error in load_models: {str(e)}")
+        logger.error(f"❌ Error loading models: {str(e)}")
         raise e
 
 def predict_gpa(input_data):
-    """Predict student GPA based on input features"""
+    """Predict student GPA"""
     features = prepare_features(input_data)
     prediction = gpa_model.predict(features)[0]
     
     return {
         'student_id': input_data.get('student_id', 'unknown'),
         'predicted_gpa': round(float(prediction), 2),
-        'confidence': 'high',
-        'timestamp': datetime.now().isoformat(),
-        'model_version': '1.0'
+        'timestamp': datetime.now().isoformat()
     }
 
 def predict_risk(input_data):
-    """Predict student risk category and return probabilities"""
+    """Predict student risk category"""
     features = prepare_features(input_data)
     
-    # Get prediction and probabilities
     prediction = risk_model.predict(features)[0]
     probabilities = risk_model.predict_proba(features)[0]
     
-    # Map to meaningful labels
     class_mapping = {0: 'At Risk', 1: 'Average', 2: 'Excellent'}
     risk_label = class_mapping.get(prediction, 'Unknown')
-    confidence = float(probabilities[prediction])
     
     return {
         'student_id': input_data.get('student_id', 'unknown'),
         'risk_category': risk_label,
-        'confidence': round(confidence, 3),
-        'all_probabilities': {
-            'At Risk': round(float(probabilities[0]), 3),
-            'Average': round(float(probabilities[1]), 3),
-            'Excellent': round(float(probabilities[2]), 3)
-        },
-        'timestamp': datetime.now().isoformat(),
-        'model_version': '1.0',
-        'recommended_actions': get_recommended_actions(risk_label, confidence)
+        'confidence': round(float(probabilities[prediction]), 3),
+        'timestamp': datetime.now().isoformat()
     }
 
 def predict_comprehensive(input_data):
-    """Get both GPA and risk predictions in one call"""
-    gpa_result = predict_gpa(input_data)
-    risk_result = predict_risk(input_data)
-    
+    """Get both GPA and risk predictions"""
     return {
         'student_id': input_data.get('student_id', 'unknown'),
-        'gpa_prediction': gpa_result,
-        'risk_prediction': risk_result,
+        'gpa_prediction': predict_gpa(input_data),
+        'risk_prediction': predict_risk(input_data),
         'timestamp': datetime.now().isoformat()
     }
 
 def prepare_features(input_data):
-    """Convert raw input JSON to a formatted DataFrame for the model"""
-    # Create dictionary with 0 as default for any missing features
+    """Convert input data to model-ready DataFrame"""
     feature_dict = {col: input_data.get(col, 0) for col in feature_columns}
     return pd.DataFrame([feature_dict], columns=feature_columns)
-
-def get_recommended_actions(risk_category, confidence):
-    """Generate actions based on the predicted risk level"""
-    actions = {
-        'At Risk': ['Schedule academic advising', 'Enroll in tutoring'],
-        'Average': ['Maintain study habits', 'Set improvement goals'],
-        'Excellent': ['Explore honors projects', 'Research opportunities']
-    }
-    return actions.get(risk_category, [])
